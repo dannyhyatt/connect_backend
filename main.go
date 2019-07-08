@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -26,6 +25,8 @@ import (
 
 const (
 	HOSTED_URL = "http://71.191.95.144:3000/"
+	EMAIL_CODE_REDIS = "_emailCode"
+	PHONE_CODE_REDIS = "_phoneCode"
 )
 
 var db *sql.DB
@@ -97,6 +98,17 @@ func main() {
 			fmt.Println("RRPRPRR")
 
 			if err != nil {
+
+				if strings.Contains(err.Error(), "violates unique constraint") {
+					if strings.Contains(err.Error(), "users_email_key") {
+						c.JSON(http.StatusNotAcceptable, gin.H {
+							"success" : false,
+							"error" : "The email \"" + email + "\" has been taken.",
+						});
+						return
+					}
+				}
+
 				c.JSON(http.StatusNotAcceptable, gin.H {
 					"success" : false,
 					"error" : "Your credentials are unacceptable", // todo provide a meaningful error & check if the error is server side connecting to the db
@@ -114,10 +126,12 @@ func main() {
 
 			// now set verification codes
 
+			rand.Seed(time.Now().Unix())
+
 			phoneCode := strconv.Itoa(rand.Intn(8999) + 1000)
 			emailCode := randStringBytesMaskImprSrcSB(24)
 
-			err = rd_client.Set(username + "_phoneCode", []byte(phoneCode), time.Minute * 30).Err()
+			err = rd_client.Set(username + PHONE_CODE_REDIS, phoneCode, time.Minute * 30).Err()
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H {
 					"success" : false,
@@ -126,7 +140,7 @@ func main() {
 				return
 			}
 
-			err = rd_client.Set(username + "_emailCode", []byte(emailCode), time.Hour * 30).Err() // set to "VERIFIED" when verified for both
+			err = rd_client.Set(username + EMAIL_CODE_REDIS, emailCode, time.Hour * 30).Err() // set to "VERIFIED" when verified for both
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H {
 					"success" : false,
@@ -154,7 +168,7 @@ func main() {
 			}
 			err = sendEmail(email, "Your Connect Registration Code",
 				"Please go to the URL here to verify your email:\n http://"+HOSTED_URL+"api/attemptVerifyEmail/"+emailCode,
-				"<img src=\"" + HOSTED_URL + "/EMAIL_LOGO.PNG\"><br><h1>Welcome to Connect!<h1> <h6>Click <a href=\"" + HOSTED_URL + "api/attemptVerifyEmail/" + emailCode + "\">here</a> to verify your account.</h6>",
+				"<img src=\"" + HOSTED_URL + "/EMAIL_LOGO.PNG\"><br><h1>Welcome to Connect!<h1> <h6>Click <a href=\"" + HOSTED_URL + "api/attemptVerifyEmail/" + username + "/" + emailCode + "\">here</a> to verify your account.</h6>",
 				"Danny", "Danny from Connect", name)
 			if err != nil {
 				fmt.Println("ERROR SENDING EMAIL")
@@ -173,7 +187,7 @@ func main() {
 
 		// do we need to send credentials to verify a phone number
 		api.GET("/attemptVerifyPhone/:username/:code", func(c *gin.Context) {
-			item, err := rd_client.Get(c.Param("username") + "_phoneCode").Result()
+			item, err := rd_client.Get(c.Param("username") + PHONE_CODE_REDIS).Result()
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H {
 					"success" : false,
@@ -198,7 +212,7 @@ func main() {
 			fmt.Println(c.Param("code"))
 
 			if item == c.Param("code") {
-				err = rd_client.Set(c.Param("username") + "_phoneCode", []byte("VERIFIED"), time.Minute * 30).Err()
+				err = rd_client.Set(c.Param("username") + PHONE_CODE_REDIS, "VERIFIED", time.Minute * 30).Err()
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H {
 						"success" : false,
@@ -217,8 +231,10 @@ func main() {
 		})
 
 		api.GET("attemptVerifyEmail/:username/:code", func(c *gin.Context) {
-			item, err := rd_client.Get(c.Param("username") + "_emailCode").Result()
+			item, err := rd_client.Get(c.Param("username") + EMAIL_CODE_REDIS).Result()
 			if err != nil {
+				fmt.Print("error: ")
+				fmt.Println(err)
 				c.JSON(http.StatusInternalServerError, gin.H {
 					"success" : false,
 					"error" : "Internal server error. Do you have an account?",
@@ -229,6 +245,8 @@ func main() {
 			//var created string
 			//created, err = rd_client.Get(c.Param("username") + "_phoneCode").Result()
 			if err != nil {
+				fmt.Print("error: ")
+				fmt.Println(err)
 				c.JSON(http.StatusInternalServerError, gin.H {
 					"success" : false,
 					"error" : "Internal server error. Do you have an account?",
@@ -242,7 +260,7 @@ func main() {
 			fmt.Println(c.Param("code"))
 
 			if item == c.Param("code") {
-				err = rd_client.Set(c.Param("username") + "_emailCode", []byte("VERIFIED"), time.Minute * 30).Err()
+				err = rd_client.Set(c.Param("username") + EMAIL_CODE_REDIS, "VERIFIED", time.Minute * 30).Err()
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H {
 						"success" : false,
@@ -259,39 +277,14 @@ func main() {
 				})
 			}
 		})
+
 	}
+
+//	router.NoRoute()
 
 	// Start and run the server
 	print(router.Run("0.0.0.0:3000"))
 }
-
-//func registerUser(username string, password string, email string, phoneNumber string) error {
-//	if !(len(username) > 3 && len(username) < 15) {
-//		return errors.New("username must be between 4 and 14 characters")
-//	}
-//
-//	if !(len(password) < 65 && len(password) >= 8) {
-//		return errors.New("password should be between 8 and 64 characters")
-//	}
-//
-//	if !isValidEmail(email) {
-//		return errors.New("invalid email address")
-//	}
-//
-//	if !isValidPhoneNumber(phoneNumber) {
-//		return errors.New("invalid phone number")
-//	}
-//
-//	//if sendRegistrationEmail(email) != nil {
-//	//	return errors.New("error sending confirmation email")
-//	//}
-//
-//	if sendRegistrationText(phoneNumber) != nil {
-//		return errors.New("error sending confirmation text")
-//	}
-//
-//	return nil
-//}
 
 func isValidEmail(address string) bool {
 	// todo
@@ -304,22 +297,65 @@ func isValidPhoneNumber(phoneNumber string) bool {
 }
 
 // todo check if email is verified after phone is verified
-func phoneVerifiedCheckEmailVerified(username string) {
+func phoneVerifiedCheckEmailVerified(username string) (bool, error) {
+	item, err := rd_client.Get(username + PHONE_CODE_REDIS).Result()
+	if err != nil {
+		fmt.Print("error: ")
+		fmt.Println(err)
+		return false, err
+	}
 
+	if item == "VERIFIED" {
+		verifyAccount(username)
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 // todo check if phone is verified after email is verified
-func emailVerifiedCheckPhoneVerified(username string) {
+func emailVerifiedCheckPhoneVerified(username string) (bool, error) {
+	item, err := rd_client.Get(username + EMAIL_CODE_REDIS).Result()
+	if err != nil {
+		fmt.Print("error: ")
+		fmt.Println(err)
+		return false, err
+	}
+
+	if item == "VERIFIED" {
+		verifyAccount(username)
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func verifyAccount(username string) error {
+	// todo
+	query := "UPDATE users SET verified=true WHERE username =\"" + username + "\";"
+	fmt.Printf("query: %s\n\n", query)
+	_, err := db.Exec(query)
+	fmt.Println("YusYusY")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 
 }
 
-func verifyAccount(username string) {
+func accountIsVerified(username string) bool {
 	// todo
+	return true
 }
 
 func sendEmail(address, subject, textBody, htmlBody, fromPrefix, fromName, toName string) error {
 	if fromPrefix == "" {
 		fromPrefix = "connect"
+	}
+	if fromName == "" {
+		fromName = "Connect"
 	}
 	from := mail.NewEmail(fromName, fromPrefix + "@connect.charity")
 	to := mail.NewEmail(toName, address)
