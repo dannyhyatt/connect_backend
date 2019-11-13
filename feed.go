@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"time"
@@ -42,4 +43,129 @@ func lookupPostById(c *gin.Context) {
 	})
 	return
 
+}
+
+func isFollowingHandler(c *gin.Context) {
+	validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+	if err != nil {
+		fmt.Println("err")
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Internal server error. Try logging in again.",
+		})
+		return
+	}
+	if !validSession {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success" : false,
+			"error" : "Invalid session. Try logging in again.",
+		})
+		return
+	}
+	if c.PostForm("charity_id") == "" {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success" : false,
+			"error" : "Charity not found.",
+		})
+		return
+	}
+
+	id, err := getUserIdFromEmail(c.PostForm("email"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Database error",
+		})
+		fmt.Print("error: ")
+		fmt.Println(err)
+		return
+	}
+
+	following, err := isFollowing(id, c.PostForm("charity_id"))
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Database error",
+		})
+		fmt.Print("error: ")
+		fmt.Println(err)
+		return
+	}
+
+	if following {
+		c.JSON(http.StatusOK, gin.H {
+			"success" : true,
+			"following" : true,
+		})
+		return
+	} else {
+		c.JSON(http.StatusOK, gin.H {
+			"success" : true,
+			"following" : false,
+		})
+		return
+	}
+}
+
+func isFollowing(user_id int64, charity_id string) (bool, error) {
+	query := "SELECT * FROM followers WHERE user_id=$1 AND charity_id=$2;"
+	rows, err := db.Query(query, user_id, charity_id)
+
+	if err != nil {
+		return false, err
+	}
+
+	if rows.Next() {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+func searchByName(c *gin.Context) {
+	if c.Param("query") == "" {
+		c.JSON(http.StatusNoContent, gin.H{
+			"success" : false,
+			"error" : "No search query provided",
+		})
+		return
+	}
+
+	const itemLimit = 5
+	var searchStr string
+	searchStr = c.Param("query")
+
+	query := "SELECT id, short_name, long_name, description, profile_url FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER($1) || '%' OR LOWER(long_name) LIKE '%' || LOWER($1) || '%' LIMIT $2;"
+	rows, err := db.Query(query, searchStr, itemLimit)
+
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Database error. Anna oop 2.",
+		})
+		return
+	}
+
+	var id, shortName, longName, description, profile_url string
+	var results [itemLimit]gin.H
+
+	for i := 0; rows.Next(); i++ {
+		rows.Scan(&id, &shortName, &longName, &description, &profile_url)
+		results[i] = gin.H{
+			"id" : id,
+			"shortName" : shortName,
+			"longName" : longName,
+			"description" : description,
+			"profileUrl" : profile_url,
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success" : true,
+		"results" : results,
+	})
+	return
 }

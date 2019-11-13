@@ -44,12 +44,13 @@ func login(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("email: " + email + " is verified")
+	//fmt.Println("email: " + email + " is verified")
 
 	sessionId := randStringBytesMaskImprSrcSB(16)
 	// err 2 incase it doesn't become null if first was error
 	err2 := rdClient.Set(email + "_sessId", sessionId, time.Hour * 2).Err()
 	if err2 != nil {
+		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success" : false,
 			"error" : "Internal Server Error",

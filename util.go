@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"math/rand"
@@ -62,12 +61,20 @@ func sendEmail(address, subject, textBody, htmlBody, fromPrefix, fromName, toNam
 }
 
 func getUserIdFromEmail(email string) (int64, error) {
-	query := "SELECT id FROM users WHERE email='" + email + "'"
-	rows, err := db.Query(query)
+	query := "SELECT id FROM users WHERE email=$1;"
+	rows, err := db.Query(query, email)
 
 	if err != nil {
 		return -1, err
 	}
+
+	//fmt.Println("rows?")
+
+	if rows.Next() {
+		//fmt.Println("success please")
+	}
+
+	//fmt.Println("what is di? ")
 
 	var id int64
 	err = rows.Scan(&id)
@@ -76,7 +83,7 @@ func getUserIdFromEmail(email string) (int64, error) {
 		return -1, err
 	}
 
-	fmt.Sprintf("ID FOR " + email + " IS %d", id)
+	//fmt.Sprintf("ID FOR " + email + " IS %d", id)
 
 	return id, nil
 }

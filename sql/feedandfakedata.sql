@@ -101,9 +101,10 @@ insert into followers(user_id, charity_id)
          1, 2
         );
 
-select * from followers;
+select * from followers where user_id=1 and charity_id=2;
 
 SELECT * FROM charity_posts WHERE id=1;
+
 
 UPDATE charity_posts SET thumbnail='https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg' WHERE thumbnail='http://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg';
 
@@ -116,4 +117,6 @@ select title, content, author_id, charity_id, thumbnail, last_edit from (
 
 SELECT * FROM users;
 
-SELECT * FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER('f') || '%' OR LOWER(long_name) LIKE '%' || LOWER('wf') || '%' LIMIT 5;
+SELECT id, short_name, long_name, description, profile_url FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER('f') || '%' OR LOWER(long_name) LIKE '%' || LOWER('wf') || '%' LIMIT 5;
+
+SELECT id FROM users WHERE email='daf281@aol.com';

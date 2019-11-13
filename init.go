@@ -19,6 +19,10 @@ func init() {
 
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
 
+	// azure test db
+	//the host can be replaced by 'testdb.connect.charity'
+	//psqlInfo = "host=connect-postgres.postgres.database.azure.com port=5432 dbname=postgres user=danny@connect-postgres password=arizonais$1 sslmode=require"
+
 	var err error
 	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
@@ -27,6 +31,7 @@ func init() {
 
 	err = db.Ping()
 	if err != nil {
+		fmt.Println(err)
 		panic(err)
 	}
 
@@ -44,6 +49,14 @@ func init() {
 		DB:       0,  // use default DB
 	})
 
+	// for azure test
+	//rdClient = redis.NewClient(&redis.Options{
+	//	//Addr:     "localhost:6379",
+	//	Addr: "connect.redis.cache.windows.net:6380",
+	//	TLSConfig: &tls.Config{},
+	//	Password: "BSm3tkXYNCHU5aJyQjsmPcqqpj1kHOQ+WuouxHd4X1E=", // no password set
+	//})
+
 	pong, err := rdClient.Ping().Result()
 	fmt.Println("redis pong? : " + pong, err)
 
@@ -51,5 +64,4 @@ func init() {
 	//if err != nil {
 	//	panic(err)
 	//}
-
 }

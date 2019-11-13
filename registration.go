@@ -35,6 +35,12 @@ func register(c *gin.Context) {
 	password %s
 `, name, email, phoneNumber, password);
 
+	if phoneNumber == "" || email == "" || password == "" || name == "" {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"success" : false,
+			"error" : "Please fill out the whole form",
+		})
+	}
 	// todo validate stuff here
 	if strings.Contains(email, " ") {
 		c.JSON(http.StatusNotAcceptable, gin.H {
@@ -52,8 +58,7 @@ func register(c *gin.Context) {
 		return
 	}
 
-
-
+	// todo fix this dumbass sql injection
 	query := "INSERT INTO users (password_hash, name, email, phone_number) VALUES ('" + password + "', '" + name + "', '" + email + "', '" + phoneNumber + "')"
 
 	// probably could do the below with Sprintf
@@ -134,7 +139,7 @@ func register(c *gin.Context) {
 	fmt.Println(err)
 	if exception != nil {
 		fmt.Println("ERROR SENDING EMAIL")
-		c.JSON(http.StatusOK, gin.H {
+		c.JSON(http.StatusBadRequest, gin.H {
 			"success" : false,
 			"error" : "Error sending text. Try using another phone number?",
 		})
@@ -146,7 +151,7 @@ func register(c *gin.Context) {
 		"Danny", "Danny from Connect", name)
 	if err != nil {
 		fmt.Println("ERROR SENDING EMAIL")
-		c.JSON(http.StatusOK, gin.H {
+		c.JSON(http.StatusBadRequest, gin.H {
 			"success" : false,
 			"error" : "Error sending email. Try using another email address?",
 		})
@@ -365,5 +370,4 @@ func verifyAccount(email string) error {
 	}
 
 	return nil
-
 }

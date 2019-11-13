@@ -1,5 +1,5 @@
 package main
-
+// 1031 lines for backend
 import (
 	"database/sql"
 	"fmt"
@@ -62,16 +62,122 @@ func main() {
 
 		api.POST("/post/id/:id", lookupPostById)
 
-		api.POST("/search/:query", func(c *gin.Context) {
-			if c.Param("query") == nil || c.Param("query") == "" {
-				c.JSON(http.StatusNoContent, gin.H{
+		api.POST("/search/:query", searchByName)
+
+		api.POST("/isFollowing", isFollowingHandler)
+
+		api.POST("/follow", func(c *gin.Context) {
+			validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+			if err != nil {
+				fmt.Println("err")
+				fmt.Println(err)
+				c.JSON(http.StatusInternalServerError, gin.H{
 					"success" : false,
-					"error" : "No search query provided"
+					"error" : "Internal server error. Try logging in again.",
+				})
+				return
+			}
+			if !validSession {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success" : false,
+					"error" : "Invalid session. Try logging in again.",
 				})
 				return
 			}
 
-			query := "SELECT * FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER('$1') || '%' OR LOWER(long_name) LIKE '%' || LOWER('$1') || '%' LIMIT 5;"
+			if c.PostForm("charity_id") == "" {
+				c.JSON(http.StatusNotFound, gin.H{
+					"success" : false,
+					"error" : "Charity not found.",
+				})
+				return
+			}
+
+			id, err := getUserIdFromEmail(c.PostForm("email"))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Database error",
+				})
+				fmt.Print("error: ")
+				fmt.Println(err)
+				return
+			}
+
+			query := "INSERT INTO followers (user_id, charity_id) VALUES ($1, $2);"
+
+			_, err = db.Exec(query, id, c.PostForm("charity_id"))
+
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Unknown error", // todo
+				})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"success" : true,
+			})
+			return
+		})
+
+		api.POST("/unfollow", func(c *gin.Context) {
+
+			validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+			if err != nil {
+				fmt.Println("err")
+				fmt.Println(err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Internal server error. Try logging in again.",
+				})
+				return
+			}
+			if !validSession {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success" : false,
+					"error" : "Invalid session. Try logging in again.",
+				})
+				return
+			}
+
+			if c.PostForm("charity_id") == "" {
+				c.JSON(http.StatusNotFound, gin.H{
+					"success" : false,
+					"error" : "Charity not found.",
+				})
+				return
+			}
+
+			id, err := getUserIdFromEmail(c.PostForm("email"))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Database error",
+				})
+				fmt.Print("error: ")
+				fmt.Println(err)
+				return
+			}
+
+			query := "DELETE FROM followers WHERE user_id=$1 AND charity_id=$2;"
+
+			_, err = db.Exec(query, id, c.PostForm("charity_id"))
+
+			if err != nil {
+				fmt.Println(err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Unknown error", // todo
+				})
+				return
+			}
+
+			c.JSON(http.StatusOK, gin.H{
+				"success" : true,
+			})
+			return
 		})
 
 		// todo change this to return list of post id's to fetch
