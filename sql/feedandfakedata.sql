@@ -120,3 +120,6 @@ SELECT * FROM users;
 SELECT id, short_name, long_name, description, profile_url FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER('f') || '%' OR LOWER(long_name) LIKE '%' || LOWER('wf') || '%' LIMIT 5;
 
 SELECT id FROM users WHERE email='daf281@aol.com';
+
+SELECT * FROM followers;
+SELECT * FROM charities;

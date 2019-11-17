@@ -67,7 +67,7 @@ func main() {
 		api.POST("/isFollowing", isFollowingHandler)
 
 		api.POST("/follow", func(c *gin.Context) {
-			validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+			validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
 			if err != nil {
 				fmt.Println("err")
 				fmt.Println(err)
@@ -93,22 +93,15 @@ func main() {
 				return
 			}
 
-			id, err := getUserIdFromEmail(c.PostForm("email"))
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success" : false,
-					"error" : "Database error",
-				})
-				fmt.Print("error: ")
-				fmt.Println(err)
-				return
-			}
+			//query := "INSERT INTO followers (user_id, charity_id) VALUES ($1, $2);"
+			query := "INSERT INTO followers (user_id, charity_id) VALUES (" + c.PostForm("id") + ", " + c.PostForm("charity_id") + ");"
+			fmt.Println("query for follow: " + query)
 
-			query := "INSERT INTO followers (user_id, charity_id) VALUES ($1, $2);"
-
-			_, err = db.Exec(query, id, c.PostForm("charity_id"))
+			_, err = db.Exec(query)
 
 			if err != nil {
+				fmt.Println("error: ")
+				fmt.Print(err)
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"success" : false,
 					"error" : "Unknown error", // todo
@@ -124,7 +117,7 @@ func main() {
 
 		api.POST("/unfollow", func(c *gin.Context) {
 
-			validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+			validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
 			if err != nil {
 				fmt.Println("err")
 				fmt.Println(err)
@@ -150,20 +143,11 @@ func main() {
 				return
 			}
 
-			id, err := getUserIdFromEmail(c.PostForm("email"))
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success" : false,
-					"error" : "Database error",
-				})
-				fmt.Print("error: ")
-				fmt.Println(err)
-				return
-			}
+			//query := "DELETE FROM followers WHERE user_id=$1 AND charity_id=$2;"
+			query := "DELETE FROM followers WHERE user_id=" + c.PostForm("id") + " AND charity_id=" + c.PostForm("charity_id") + ";"
 
-			query := "DELETE FROM followers WHERE user_id=$1 AND charity_id=$2;"
-
-			_, err = db.Exec(query, id, c.PostForm("charity_id"))
+			fmt.Println("query is: " + query)
+			_, err = db.Exec(query)
 
 			if err != nil {
 				fmt.Println(err)

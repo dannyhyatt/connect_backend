@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -13,12 +14,16 @@ func login(c *gin.Context) {
 	email := c.PostForm("email")
 	password := c.PostForm("password") // todo hash passwords
 
-	query := "SELECT verified FROM users WHERE email='" + email + "' AND password_hash='" + password + "';"
+	query := "SELECT id, verified FROM users WHERE email='" + email + "' AND password_hash='" + password + "';"
 
 	fmt.Println("query for db is " + query);
+	fmt.Println("password: " + password)
 	var verified bool
+	var id_int int64
 	row := db.QueryRow(query)
-	err := row.Scan(&verified)
+	err := row.Scan(&id_int, &verified)
+	id := strconv.FormatInt(id_int, 10)
+	fmt.Println("id is " + id)
 	if err == sql.ErrNoRows {
 		// todo this is firing and i don't know why
 		c.JSON(http.StatusOK, gin.H{
@@ -48,7 +53,7 @@ func login(c *gin.Context) {
 
 	sessionId := randStringBytesMaskImprSrcSB(16)
 	// err 2 incase it doesn't become null if first was error
-	err2 := rdClient.Set(email + "_sessId", sessionId, time.Hour * 2).Err()
+	err2 := rdClient.Set(id + "_sessId", sessionId, time.Hour * 2).Err()
 	if err2 != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -61,14 +66,15 @@ func login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success" : true,
 		"session_id" : sessionId,
+		"id" : id,
 	})
 	return
 
 }
 
-func verifySession(email, sessionId string) (bool, error) {
+func verifySession(id, sessionId string) (bool, error) {
 
-	correctSessionId, err := rdClient.Get(email + "_sessId").Result()
+	correctSessionId, err := rdClient.Get(id + "_sessId").Result()
 	if err != nil {
 		return false, err
 	}

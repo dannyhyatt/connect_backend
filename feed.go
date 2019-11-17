@@ -46,7 +46,9 @@ func lookupPostById(c *gin.Context) {
 }
 
 func isFollowingHandler(c *gin.Context) {
-	validSession, err := verifySession(c.PostForm("email"), c.PostForm("session_id"))
+
+
+	validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
 	if err != nil {
 		fmt.Println("err")
 		fmt.Println(err)
@@ -57,6 +59,7 @@ func isFollowingHandler(c *gin.Context) {
 		return
 	}
 	if !validSession {
+		//fmt.Println("invalid session when requesting charity: " + c.PostForm("charity_id"))
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"success" : false,
 			"error" : "Invalid session. Try logging in again.",
@@ -71,18 +74,7 @@ func isFollowingHandler(c *gin.Context) {
 		return
 	}
 
-	id, err := getUserIdFromEmail(c.PostForm("email"))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"success" : false,
-			"error" : "Database error",
-		})
-		fmt.Print("error: ")
-		fmt.Println(err)
-		return
-	}
-
-	following, err := isFollowing(id, c.PostForm("charity_id"))
+	following, err := isFollowing(c.PostForm("id"), c.PostForm("charity_id"))
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -94,22 +86,17 @@ func isFollowingHandler(c *gin.Context) {
 		return
 	}
 
-	if following {
-		c.JSON(http.StatusOK, gin.H {
-			"success" : true,
-			"following" : true,
-		})
-		return
-	} else {
-		c.JSON(http.StatusOK, gin.H {
-			"success" : true,
-			"following" : false,
-		})
-		return
-	}
+	fmt.Printf("\nfollowing: %v, user: %s, charity: %s\n", following, c.PostForm("id"), c.PostForm("charity_id"))
+
+	c.JSON(http.StatusOK, gin.H {
+		"success" : true,
+		"following" : following,
+		"charity_id" : c.PostForm("charity_id"),
+	})
+	return
 }
 
-func isFollowing(user_id int64, charity_id string) (bool, error) {
+func isFollowing(user_id string, charity_id string) (bool, error) {
 	query := "SELECT * FROM followers WHERE user_id=$1 AND charity_id=$2;"
 	rows, err := db.Query(query, user_id, charity_id)
 
@@ -118,10 +105,21 @@ func isFollowing(user_id int64, charity_id string) (bool, error) {
 	}
 
 	if rows.Next() {
+		if rows.Close() != nil {
+			fmt.Println("error closing db")
+			return false, err
+		}
+		fmt.Println("successfully closed db")
 		return true, nil
 	} else {
+		if rows.Close() != nil {
+			fmt.Println("error closing db")
+			return false, err
+		}
+		fmt.Println("successfully closed db")
 		return false, nil
 	}
+
 }
 
 func searchByName(c *gin.Context) {

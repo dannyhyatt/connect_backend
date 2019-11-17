@@ -40,6 +40,7 @@ func register(c *gin.Context) {
 			"success" : false,
 			"error" : "Please fill out the whole form",
 		})
+		return
 	}
 	// todo validate stuff here
 	if strings.Contains(email, " ") {
