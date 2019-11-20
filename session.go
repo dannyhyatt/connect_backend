@@ -75,6 +75,8 @@ func login(c *gin.Context) {
 func verifySession(id, sessionId string) (bool, error) {
 
 	correctSessionId, err := rdClient.Get(id + "_sessId").Result()
+	fmt.Printf("verifying %s with key %s, error:\n", id + "_sessId", sessionId)
+	fmt.Println(err)
 	if err != nil {
 		return false, err
 	}

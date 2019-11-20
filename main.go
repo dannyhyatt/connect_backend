@@ -67,7 +67,21 @@ func main() {
 		api.POST("/isFollowing", isFollowingHandler)
 
 		api.POST("/follow", func(c *gin.Context) {
-			validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
+
+			fmt.Println(c.Accepted)
+			id, a := c.GetPostForm("id")
+			sessionId, b := c.GetPostForm("session_id")
+			charityId, d := c.GetPostForm("charity_id")
+
+			if !a || !b || !d {
+				c.JSON(http.StatusUnprocessableEntity, gin.H{
+					"success" : false,
+					"error" : "Unspecified parameters",
+				})
+				return
+			}
+
+			validSession, err := verifySession(id, sessionId)
 			if err != nil {
 				fmt.Println("err")
 				fmt.Println(err)
@@ -85,7 +99,7 @@ func main() {
 				return
 			}
 
-			if c.PostForm("charity_id") == "" {
+			if charityId == "" {
 				c.JSON(http.StatusNotFound, gin.H{
 					"success" : false,
 					"error" : "Charity not found.",
@@ -94,7 +108,7 @@ func main() {
 			}
 
 			//query := "INSERT INTO followers (user_id, charity_id) VALUES ($1, $2);"
-			query := "INSERT INTO followers (user_id, charity_id) VALUES (" + c.PostForm("id") + ", " + c.PostForm("charity_id") + ");"
+			query := "INSERT INTO followers (user_id, charity_id) VALUES (" + id + ", " + charityId + ");"
 			fmt.Println("query for follow: " + query)
 
 			_, err = db.Exec(query)
@@ -117,7 +131,11 @@ func main() {
 
 		api.POST("/unfollow", func(c *gin.Context) {
 
-			validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
+			id := c.PostForm("id")
+			sessionId := c.PostForm("session_id")
+			charityId := c.PostForm("charity_id")
+
+			validSession, err := verifySession(id, sessionId)
 			if err != nil {
 				fmt.Println("err")
 				fmt.Println(err)
@@ -135,7 +153,7 @@ func main() {
 				return
 			}
 
-			if c.PostForm("charity_id") == "" {
+			if charityId == "" {
 				c.JSON(http.StatusNotFound, gin.H{
 					"success" : false,
 					"error" : "Charity not found.",
@@ -144,7 +162,7 @@ func main() {
 			}
 
 			//query := "DELETE FROM followers WHERE user_id=$1 AND charity_id=$2;"
-			query := "DELETE FROM followers WHERE user_id=" + c.PostForm("id") + " AND charity_id=" + c.PostForm("charity_id") + ";"
+			query := "DELETE FROM followers WHERE user_id=" + id + " AND charity_id=" + charityId + ";"
 
 			fmt.Println("query is: " + query)
 			_, err = db.Exec(query)

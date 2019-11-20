@@ -47,10 +47,22 @@ func lookupPostById(c *gin.Context) {
 
 func isFollowingHandler(c *gin.Context) {
 
+	id, a := c.GetPostForm("id")
+	sessionId, b := c.GetPostForm("session_id")
+	charityId, d := c.GetPostForm("charity_id")
+	if !a || !b || !d {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"success" : false,
+			"error" : "Unspecified parameters",
+		})
+		return
+	}
 
-	validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
+	fmt.Printf("just received id: %s, session id: %s, charity id: %s\n",id, sessionId, charityId)
+
+	validSession, err := verifySession(id, sessionId)
 	if err != nil {
-		fmt.Println("err")
+		fmt.Println("err for validating session")
 		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success" : false,
@@ -74,7 +86,7 @@ func isFollowingHandler(c *gin.Context) {
 		return
 	}
 
-	following, err := isFollowing(c.PostForm("id"), c.PostForm("charity_id"))
+	following, err := isFollowing(id, charityId)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -86,12 +98,12 @@ func isFollowingHandler(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("\nfollowing: %v, user: %s, charity: %s\n", following, c.PostForm("id"), c.PostForm("charity_id"))
+	fmt.Printf("\nfollowing: %v, user: %s, charity: %s\n", following, id, charityId)
 
 	c.JSON(http.StatusOK, gin.H {
 		"success" : true,
 		"following" : following,
-		"charity_id" : c.PostForm("charity_id"),
+		"charity_id" : charityId,
 	})
 	return
 }
