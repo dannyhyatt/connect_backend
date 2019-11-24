@@ -16,5 +16,6 @@
         <method importPath="github.com/sfreiberg/gotwilio" receiver="*Twilio" name="SendSMS" />
       </methods>
     </inspection_tool>
+    <inspection_tool class="SqlResolveInspection" enabled="false" level="ERROR" enabled_by_default="false" />
   </profile>
 </component>

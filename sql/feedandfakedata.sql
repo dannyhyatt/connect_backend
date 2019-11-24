@@ -53,6 +53,15 @@ insert into charity_users(charity_id, display_name, bio, password_hash)
          'wwfposter'
         );
 
+insert into charity_users(charity_id, display_name, bio, password_hash)
+ VALUES (
+         3,
+         'Door ToDoor Guy',
+         'I work for Thaat Bird Foundation',
+         'tbfposter'
+        );
+
+
 select * from charity_users;
 
 insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
@@ -60,6 +69,49 @@ insert into charity_posts(charity_id, author_id, title, content, thumbnail, post
          1,
          1,
          'PeTa is stopping animal cruelty!',
+         '# How peta is stoping animal cruelty \nayayyaya\nfrick the farmers',
+         'https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         1,
+         1,
+         'PeTa post 2!',
+         '# How peta is stoping animal cruelty \nayayyaya\nfrick the farmers',
+         'https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg',
+         now(),
+         now()
+        );
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         1,
+         1,
+         'PeTa post 3',
+         '# How peta is stoping animal cruelty \nayayyaya\nfrick the farmers',
+         'https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         1,
+         1,
+         'PeTa post 4',
+         '# How peta is stoping animal cruelty \nayayyaya\nfrick the farmers',
+         'https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         1,
+         1,
+         'PeTa post 5!',
          '# How peta is stoping animal cruelty \nayayyaya\nfrick the farmers',
          'https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg',
          now(),
@@ -88,6 +140,64 @@ insert into charity_posts(charity_id, author_id, title, content, thumbnail, post
          now()
         );
 
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         3,
+         3,
+         'TBF is saving the Birds!',
+         '# dont kill the birds\n we go around to peoples doors to see if they need help',
+         'https://www.want2donate.org/sites/default/files/imag960x560rspb9-0..jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         3,
+         3,
+         'TBF post 2!',
+         '# dont kill the birds\n we go around to peoples doors to see if they need help',
+         'https://www.want2donate.org/sites/default/files/imag960x560rspb9-0..jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         3,
+         3,
+         'TBF post 3!',
+         '# dont kill the birds\n we go around to peoples doors to see if they need help',
+         'https://www.want2donate.org/sites/default/files/imag960x560rspb9-0..jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         3,
+         3,
+         'TBF post 4!',
+         '# dont kill the birds\n we go around to peoples doors to see if they need help',
+         'https://www.want2donate.org/sites/default/files/imag960x560rspb9-0..jpg',
+         now(),
+         now()
+        );
+
+insert into charity_posts(charity_id, author_id, title, content, thumbnail, post_time, last_edit)
+ VALUES (
+         3,
+         3,
+         'TBF post 5!',
+         '# dont kill the birds\n we go around to peoples doors to see if they need help',
+         'https://www.want2donate.org/sites/default/files/imag960x560rspb9-0..jpg',
+         now(),
+         now()
+        );
+
+
+
+
 select * from charity_posts;
 
 
@@ -108,14 +218,24 @@ SELECT * FROM charity_posts WHERE id=1;
 
 UPDATE charity_posts SET thumbnail='https://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg' WHERE thumbnail='http://cdn.sheknows.com/articles/2012/02/Sarah_Parenting/volunteer.jpg';
 
-select title, content, author_id, charity_id, thumbnail, last_edit from (
-         select distinct on (post_time) *
+INSERT INTO views (user_id, charity_post_id, viewed_at) VALUES (1, unnest(array(
+select id from (
+         select distinct on (last_edit) *
          from charity_posts
-         order by post_time
-     ) t WHERE charity_id in (SELECT charity_id FROM  followers WHERE user_id=1) -- AND post_id NOT IN (SELECT post_id FROM viewed_post WHERE user_id=x) <--- that's untested
-     order by post_time limit 10;
+         order by last_edit desc
+     ) t WHERE charity_id in (SELECT charity_id FROM  followers WHERE user_id=1) AND id NOT IN (SELECT charity_post_id FROM views WHERE user_id=1) -- that's untested
+     order by last_edit limit 5)
+), now());
 
-SELECT * FROM users;
+SELECT * FROM charity_posts REVERSE ORDER BY last_edit DESC;
+
+SELECT * FROM views WHERE user_id=1 ORDER BY viewed_at DESC LIMIT 5;
+DELETE FROM views WHERE user_id=1;
+
+SELECT * FROM views;
+
+SELECT email, name, phone_number FROM users WHERE id=1;
+--SELECT SUM(SELECT amount FROM donations WHERE id=1 AND flushed=true);
 
 SELECT id, short_name, long_name, description, profile_url FROM charities WHERE LOWER(short_name) LIKE '%' || LOWER('f') || '%' OR LOWER(long_name) LIKE '%' || LOWER('wf') || '%' LIMIT 5;
 
@@ -123,3 +243,4 @@ SELECT id FROM users WHERE email='daf281@aol.com';
 
 SELECT * FROM followers;
 SELECT * FROM charities;
+SELECT  * FROM charity_posts;

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -27,6 +28,7 @@ func lookupPostById(c *gin.Context) {
 			"success" : false,
 			"error" : "Post not found.",
 		})
+		rows.Close()
 		return
 	}
 
@@ -41,6 +43,7 @@ func lookupPostById(c *gin.Context) {
 		"thumbnail" : thumbnail,
 		"last_edit" : lastEdit.Unix(),
 	})
+	rows.Close()
 	return
 
 }
@@ -178,4 +181,267 @@ func searchByName(c *gin.Context) {
 		"results" : results,
 	})
 	return
+}
+
+func follow(c *gin.Context) {
+
+	fmt.Println(c.Accepted)
+	id, a := c.GetPostForm("id")
+	sessionId, b := c.GetPostForm("session_id")
+	charityId, d := c.GetPostForm("charity_id")
+
+	if !a || !b || !d {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{
+			"success" : false,
+			"error" : "Unspecified parameters",
+		})
+		return
+	}
+
+	validSession, err := verifySession(id, sessionId)
+	if err != nil {
+		fmt.Println("err")
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Internal server error. Try logging in again.",
+		})
+		return
+	}
+	if !validSession {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success" : false,
+			"error" : "Invalid session. Try logging in again.",
+		})
+		return
+	}
+
+	if charityId == "" {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success" : false,
+			"error" : "Charity not found.",
+		})
+		return
+	}
+
+	//query := "INSERT INTO followers (user_id, charity_id) VALUES ($1, $2);"
+	query := "INSERT INTO followers (user_id, charity_id) VALUES (" + id + ", " + charityId + ");"
+	fmt.Println("query for follow: " + query)
+
+	_, err = db.Exec(query)
+
+	if err != nil {
+		fmt.Println("error: ")
+		fmt.Print(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Unknown error", // todo
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success" : true,
+	})
+	return
+}
+
+func unfollow(c *gin.Context) {
+
+	id := c.PostForm("id")
+	sessionId := c.PostForm("session_id")
+	charityId := c.PostForm("charity_id")
+
+	validSession, err := verifySession(id, sessionId)
+	if err != nil {
+		fmt.Println("err")
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Internal server error. Try logging in again.",
+		})
+		return
+	}
+	if !validSession {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success" : false,
+			"error" : "Invalid session. Try logging in again.",
+		})
+		return
+	}
+
+	if charityId == "" {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success" : false,
+			"error" : "Charity not found.",
+		})
+		return
+	}
+
+	//query := "DELETE FROM followers WHERE user_id=$1 AND charity_id=$2;"
+	query := "DELETE FROM followers WHERE user_id=" + id + " AND charity_id=" + charityId + ";"
+
+	fmt.Println("query is: " + query)
+	_, err = db.Exec(query)
+
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Unknown error", // todo
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success" : true,
+	})
+	return
+}
+
+func getLastFiveFromViewN(id string, n int) ([]string, error) {
+
+	// todo renae to charity id
+	query := `SELECT charity_post_id FROM views WHERE user_id=$1 ORDER BY viewed_at DESC LIMIT 5 OFFSET $2;`;
+
+	rows, err := db.Query(query, id, n)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var items = make([]string, 5)
+	cutoff := 5
+
+	for i := 0; i < 5; i++ {
+		if !rows.Next() { break }
+		rows.Scan(&items[i]) // todo handle error
+		fmt.Println("just scanned ", items[i])
+		if items[i] == "" {
+			cutoff = i - 1 // handle if i is 0 index out of bounds
+		}
+	}
+
+	return items[:cutoff], nil;
+}
+
+func feed(c *gin.Context) {
+	validSession, err := verifySession(c.PostForm("id"), c.PostForm("session_id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Internal server error. Try logging in again.",
+		})
+		return
+	}
+	if !validSession {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success" : false,
+			"error" : "Invalid session. Try logging in again.",
+		})
+		return
+	}
+
+	offset := 0
+	if c.PostForm("offset") != "" {
+		if c.PostForm("offset") == "new" {
+			query := `INSERT INTO views (user_id, charity_post_id, viewed_at) VALUES ($1, unnest(array(
+					select id from (
+						select distinct on (last_edit) *
+							from charity_posts
+							order by last_edit desc
+							) t WHERE charity_id in (SELECT charity_id FROM  followers WHERE user_id=$1) AND id NOT IN (SELECT charity_post_id FROM views WHERE user_id=$1) -- that's untested
+							order by last_edit limit 5 offset $2)
+						), now());`
+			fmt.Println("query for follow: " + query)
+
+			_, err = db.Exec(query, c.PostForm("id"), offset)
+
+			if err != nil {
+				fmt.Println("1error: ")
+				fmt.Print(err)
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success" : false,
+					"error" : "Unknown error", // todo
+				})
+				return
+			}
+		} else {
+			offset, err = strconv.Atoi(c.PostForm("offset"))
+			if err != nil {
+				offset = 0
+			}
+		}
+	}
+
+	postIds, err := getLastFiveFromViewN(c.PostForm("id"), offset)
+	if err != nil {
+		fmt.Printf("error geetting last 5 \n\n")
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success" : false,
+			"error" : "Internal server error. Try logging in again.",
+		})
+		return
+	}
+
+	fmt.Println(postIds)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success" : true,
+		"feed" : postIds,
+	})
+	return
+
+	//// todo id returns 0 for some reason
+	//id, err := getUserIdFromEmail(c.PostForm("email"))
+	//fmt.Print("ID for email " + c.PostForm("email") + " is ")
+	//fmt.Println(id)
+	//if err != nil {
+	//	c.JSON(http.StatusInternalServerError, gin.H{
+	//		"success" : false,
+	//		"error" : "Internal server error. Anna oop.",
+	//	})
+	//	return
+	//}
+	//
+	//query := `INSERT INTO views (user_id, charity_post_id, viewed_at) VALUES ($1, unnest(array(
+	//			select id from (
+	//					 select distinct on (last_edit) *
+	//					 from charity_posts
+	//					 order by last_edit desc
+	//				 ) t WHERE charity_id in (SELECT charity_id FROM  followers WHERE user_id=$1) AND id NOT IN (SELECT charity_post_id FROM views WHERE user_id=$1) -- that's untested
+	//				 order by last_edit limit 2)
+	//			), now());`;
+	//
+	//rows, err := db.Exec(query, id)
+	//
+	//if err != nil {
+	//	c.JSON(http.StatusInternalServerError, gin.H{
+	//		"success" : false,
+	//		"error" : "Database error. Anna oop 2.",
+	//	})
+	//	return
+	//}
+	//
+	//var items [5]gin.H
+	//var title, content, thumbnail string
+	//var postDate, lastEdit time.Time
+	//
+	//for i := 0; i < 3; i++ {
+	//	if !rows.Next() { break }
+	//	rows.Scan(&title, &content, &thumbnail, &postDate, &lastEdit)
+	//	items[i] = gin.H{
+	//		"title" : title,
+	//		"content" : content,
+	//		"thumbnail" : thumbnail,
+	//		"postDate" : postDate.Unix(),
+	//		"lastEdit" : postDate.Unix(),
+	//	}
+	//}
+	//
+	//c.JSON(http.StatusOK, gin.H{
+	//	"success" : true,
+	//	"items" : items,
+	//})
 }
