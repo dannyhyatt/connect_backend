@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"github.com/go-redis/redis"
@@ -21,7 +22,7 @@ func init() {
 
 	// azure test db
 	//the host can be replaced by 'testdb.connect.charity'
-	//psqlInfo = "host=connect-postgres.postgres.database.azure.com port=5432 dbname=postgres user=danny@connect-postgres password=arizonais$1 sslmode=require"
+	psqlInfo = "host=connect-postgres.postgres.database.azure.com port=5432 dbname=postgres user=danny@connect-postgres password=arizonais$1 sslmode=require"
 
 	var err error
 	db, err = sql.Open("postgres", psqlInfo)
@@ -43,19 +44,19 @@ func init() {
 
 	sgClient = sendgrid.NewSendClient("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")
 
-	rdClient = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
-	})
-
-	// for azure test
 	//rdClient = redis.NewClient(&redis.Options{
-	//	//Addr:     "localhost:6379",
-	//	Addr: "connect.redis.cache.windows.net:6380",
-	//	TLSConfig: &tls.Config{},
-	//	Password: "BSm3tkXYNCHU5aJyQjsmPcqqpj1kHOQ+WuouxHd4X1E=", // no password set
+	//	Addr:     "localhost:6379",
+	//	Password: "", // no password set
+	//	DB:       0,  // use default DB
 	//})
+
+	//for azure test
+	rdClient = redis.NewClient(&redis.Options{
+		//Addr:     "localhost:6379",
+		Addr: "connect.redis.cache.windows.net:6380",
+		TLSConfig: &tls.Config{},
+		Password: "BSm3tkXYNCHU5aJyQjsmPcqqpj1kHOQ+WuouxHd4X1E=", // no password set
+	})
 
 	pong, err := rdClient.Ping().Result()
 	fmt.Println("redis pong? : " + pong, err)

@@ -59,48 +59,6 @@ func register(c *gin.Context) {
 		return
 	}
 
-	// todo fix this dumbass sql injection
-	query := "INSERT INTO users (password_hash, name, email, phone_number) VALUES ('" + password + "', '" + name + "', '" + email + "', '" + phoneNumber + "')"
-
-	// probably could do the below with Sprintf
-	fmt.Printf("query: %s\n\n", query)
-	_, err := db.Exec(query)
-	fmt.Println("RRPRPRR")
-
-	if err != nil {
-
-		if strings.Contains(err.Error(), "violates unique constraint") {
-			if strings.Contains(err.Error(), "users_email_key") {
-				c.JSON(http.StatusNotAcceptable, gin.H {
-					"success" : false,
-					"error" : "The email \"" + email + "\" is already in use.",
-				});
-				return
-			}
-			if strings.Contains(err.Error(), "users_phone_number_key") {
-				c.JSON(http.StatusNotAcceptable, gin.H {
-					"success" : false,
-					"error" : "The phone number \"" + phoneNumber + "\" is already in use.",
-				});
-				return
-			}
-		}
-
-		c.JSON(http.StatusNotAcceptable, gin.H {
-			"success" : false,
-			"error" : "Your credentials are unacceptable", // todo provide a meaningful error & check if the error is server side connecting to the db
-		})
-
-		fmt.Print("error: ")
-		fmt.Print(err)
-
-		return
-	} else {
-		//id:=_
-		//fmt.Print("id: ")
-		//fmt.Println(id)
-	}
-
 	// now set verification codes
 
 	rand.Seed(time.Now().Unix())
@@ -109,7 +67,7 @@ func register(c *gin.Context) {
 	emailCode := randStringBytesMaskImprSrcSB(24)
 
 	fmt.Println("setting "+ email + PHONE_CODE_REDIS + " to " + phoneCode + " in redis")
-	err = rdClient.Set(email + PHONE_CODE_REDIS, phoneCode, time.Minute * 30).Err()
+	err := rdClient.Set(email + PHONE_CODE_REDIS, phoneCode, time.Minute * 30).Err()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H {
 			"success" : false,
@@ -156,6 +114,44 @@ func register(c *gin.Context) {
 			"success" : false,
 			"error" : "Error sending email. Try using another email address?",
 		})
+		return
+	}
+
+	// todo fix this dumbass sql injection
+	query := "INSERT INTO users (password_hash, name, email, phone_number) VALUES ($1, $2, $3, $4)"
+
+	// probably could do the below with Sprintf
+	//fmt.Printf("query: %s\n\n", query)
+	_, err = db.Exec(query, password, name, email, phoneNumber)
+	//fmt.Println("RRPRPRR")
+
+	if err != nil {
+
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			if strings.Contains(err.Error(), "users_email_key") {
+				c.JSON(http.StatusNotAcceptable, gin.H {
+					"success" : false,
+					"error" : "The email \"" + email + "\" is already in use.",
+				});
+				return
+			}
+			if strings.Contains(err.Error(), "users_phone_number_key") {
+				c.JSON(http.StatusNotAcceptable, gin.H {
+					"success" : false,
+					"error" : "The phone number \"" + phoneNumber + "\" is already in use.",
+				});
+				return
+			}
+		}
+
+		c.JSON(http.StatusNotAcceptable, gin.H {
+			"success" : false,
+			"error" : "Your credentials are unacceptable", // todo provide a meaningful error & check if the error is server side connecting to the db
+		})
+
+		fmt.Print("error: ")
+		fmt.Print(err)
+
 		return
 	}
 
